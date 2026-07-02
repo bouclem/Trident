@@ -5,7 +5,7 @@ add_library(trident STATIC)
 add_library(Trident::Trident ALIAS trident)
 
 target_sources(trident PRIVATE
-    # Source files will be added here as modules are implemented
+    core/tensor.cpp
 )
 
 target_include_directories(trident
