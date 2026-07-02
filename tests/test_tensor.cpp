@@ -251,6 +251,154 @@ static void test_fill_float() {
     }
 }
 
+// --- Factory method tests ---
+
+static void test_zeros() {
+    Tensor t = Tensor::zeros({3, 4}, DType::float32);
+    assert(t.numel() == 12);
+    for (std::size_t i = 0; i < 12; ++i) {
+        assert(t.at<float>(i) == 0.0f);
+    }
+}
+
+static void test_zeros_int() {
+    Tensor t = Tensor::zeros({2, 2}, DType::int32);
+    for (std::size_t i = 0; i < 4; ++i) {
+        assert(t.at<int32_t>(i) == 0);
+    }
+}
+
+static void test_ones() {
+    Tensor t = Tensor::ones({3, 4}, DType::float32);
+    assert(t.numel() == 12);
+    for (std::size_t i = 0; i < 12; ++i) {
+        assert(t.at<float>(i) == 1.0f);
+    }
+}
+
+static void test_ones_int() {
+    Tensor t = Tensor::ones({2, 2}, DType::int64);
+    for (std::size_t i = 0; i < 4; ++i) {
+        assert(t.at<int64_t>(i) == 1);
+    }
+}
+
+static void test_arange() {
+    Tensor t = Tensor::arange(5, DType::float32);
+    assert(t.numel() == 5);
+    for (std::size_t i = 0; i < 5; ++i) {
+        assert(t.at<float>(i) == static_cast<float>(i));
+    }
+}
+
+static void test_arange_int() {
+    Tensor t = Tensor::arange(10, DType::int32);
+    assert(t.numel() == 10);
+    for (std::size_t i = 0; i < 10; ++i) {
+        assert(t.at<int32_t>(i) == static_cast<int32_t>(i));
+    }
+}
+
+static void test_rand_range() {
+    Tensor t = Tensor::rand({100}, DType::float32);
+    assert(t.numel() == 100);
+    for (std::size_t i = 0; i < 100; ++i) {
+        const float v = t.at<float>(i);
+        assert(v >= 0.0f && v < 1.0f);
+    }
+}
+
+static void test_randn_shape() {
+    Tensor t = Tensor::randn({4, 5}, DType::float32);
+    assert(t.numel() == 20);
+    assert(t.shape() == std::vector<std::size_t>({4, 5}));
+}
+
+// --- Arithmetic operator tests ---
+
+static void test_add() {
+    Tensor a = Tensor::arange(4, DType::float32);
+    Tensor b = Tensor::ones({4}, DType::float32);
+    Tensor c = a + b;
+    assert(c.at<float>(0) == 1.0f);
+    assert(c.at<float>(1) == 2.0f);
+    assert(c.at<float>(2) == 3.0f);
+    assert(c.at<float>(3) == 4.0f);
+}
+
+static void test_sub() {
+    Tensor a = Tensor::arange(4, DType::float32);
+    Tensor b = Tensor::ones({4}, DType::float32);
+    Tensor c = a - b;
+    assert(c.at<float>(0) == -1.0f);
+    assert(c.at<float>(1) == 0.0f);
+    assert(c.at<float>(2) == 1.0f);
+    assert(c.at<float>(3) == 2.0f);
+}
+
+static void test_mul() {
+    Tensor a({3}, DType::float32);
+    a.fill<float>(2.0f);
+    Tensor b({3}, DType::float32);
+    b.fill<float>(3.0f);
+    Tensor c = a * b;
+    for (std::size_t i = 0; i < 3; ++i) {
+        assert(c.at<float>(i) == 6.0f);
+    }
+}
+
+static void test_div() {
+    Tensor a({3}, DType::float32);
+    a.fill<float>(6.0f);
+    Tensor b({3}, DType::float32);
+    b.fill<float>(2.0f);
+    Tensor c = a / b;
+    for (std::size_t i = 0; i < 3; ++i) {
+        assert(c.at<float>(i) == 3.0f);
+    }
+}
+
+static void test_arithmetic_int() {
+    Tensor a({3}, DType::int32);
+    a.fill<int32_t>(10);
+    Tensor b({3}, DType::int32);
+    b.fill<int32_t>(3);
+    Tensor sum = a + b;
+    Tensor diff = a - b;
+    Tensor prod = a * b;
+    Tensor quot = a / b;
+    for (std::size_t i = 0; i < 3; ++i) {
+        assert(sum.at<int32_t>(i) == 13);
+        assert(diff.at<int32_t>(i) == 7);
+        assert(prod.at<int32_t>(i) == 30);
+        assert(quot.at<int32_t>(i) == 3);
+    }
+}
+
+static void test_shape_mismatch_throws() {
+    Tensor a({2, 3}, DType::float32);
+    Tensor b({3, 2}, DType::float32);
+    bool threw = false;
+    try {
+        (void)(a + b);
+    } catch (const std::invalid_argument&) {
+        threw = true;
+    }
+    assert(threw);
+}
+
+static void test_dtype_mismatch_throws() {
+    Tensor a({4}, DType::float32);
+    Tensor b({4}, DType::int32);
+    bool threw = false;
+    try {
+        (void)(a + b);
+    } catch (const std::invalid_argument&) {
+        threw = true;
+    }
+    assert(threw);
+}
+
 // --- Bounds checking tests (debug only) ---
 
 #ifndef NDEBUG
@@ -290,7 +438,7 @@ static void test_wrong_index_count() {
 
 int main() {
     const auto total_t0 = std::chrono::high_resolution_clock::now();
-    std::printf("=== Trident Tests v0.0.1 ===\n\n");
+    std::printf("=== Trident Tests v0.0.2 ===\n\n");
 
     std::printf("[DType]\n");
     RUN_TEST(test_dtype_size);
@@ -325,6 +473,25 @@ int main() {
     std::printf("\n[Fill]\n");
     RUN_TEST(test_fill_int);
     RUN_TEST(test_fill_float);
+
+    std::printf("\n[Factory Methods]\n");
+    RUN_TEST(test_zeros);
+    RUN_TEST(test_zeros_int);
+    RUN_TEST(test_ones);
+    RUN_TEST(test_ones_int);
+    RUN_TEST(test_arange);
+    RUN_TEST(test_arange_int);
+    RUN_TEST(test_rand_range);
+    RUN_TEST(test_randn_shape);
+
+    std::printf("\n[Arithmetic]\n");
+    RUN_TEST(test_add);
+    RUN_TEST(test_sub);
+    RUN_TEST(test_mul);
+    RUN_TEST(test_div);
+    RUN_TEST(test_arithmetic_int);
+    RUN_TEST(test_shape_mismatch_throws);
+    RUN_TEST(test_dtype_mismatch_throws);
 
 #ifndef NDEBUG
     std::printf("\n[Bounds Checking (debug)]\n");

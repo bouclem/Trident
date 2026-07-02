@@ -1,5 +1,8 @@
 # Project — Trident
 
+**Version:** 0.0.2  
+**Last updated:** 2026-07-02
+
 ## What It Is
 
 Trident is a C++ deep learning and tensor computation framework built from scratch. It aims to provide a complete training and inference stack with multi-backend hardware support, a compiled graph runtime, and language bindings for Python, Go, and Zig.
@@ -36,13 +39,13 @@ Trident is a C++ deep learning and tensor computation framework built from scrat
 
 ### Key Subsystems
 
-- **Core** — Tensor, DType, Shape, Device abstractions
-- **Memory** — Allocators, pools, pinned memory, caching, ref counting
-- **Backend** — Per-vendor kernel implementations behind a common interface
-- **Autograd** — Reverse-mode automatic differentiation over the computation graph
-- **Compiler** — IR lowering, optimization passes, JIT code generation
-- **Runtime** — Execution engine that schedules and runs operations
-- **Distributed** — Multi-node coordination for data and model parallelism
+- **Core** ✅ — `Tensor` class, `DType` (11 types), `float16`/`bfloat16`, `Device`, shape/strides, element access, reshape, fill, factory methods, arithmetic operators
+- **Memory** — Allocators, pools, pinned memory, caching, ref counting _(TODO)_
+- **Backend** — Per-vendor kernel implementations behind a common interface _(TODO)_
+- **Autograd** — Reverse-mode automatic differentiation over the computation graph _(TODO)_
+- **Compiler** — IR lowering, optimization passes, JIT code generation _(TODO)_
+- **Runtime** — Execution engine that schedules and runs operations _(TODO)_
+- **Distributed** — Multi-node coordination for data and model parallelism _(TODO)_
 
 ## Design Principles
 
@@ -54,12 +57,31 @@ Trident is a C++ deep learning and tensor computation framework built from scrat
 
 ## Direction
 
-1. Establish core types and CPU backend
-2. Build autograd and computation graph
-3. Add CUDA backend
-4. Implement compiler (IR + JIT)
-5. Add NN layers and optimizers
-6. Python bindings
-7. Distributed training
-8. ROCm and Intel backends
-9. Quantization and deployment tooling
+1. ✅ ~~Establish core types~~ — Tensor, DType, half precision, factory methods, arithmetic
+2. Build CPU backend with SIMD support
+3. Build autograd and computation graph
+4. Add CUDA backend
+5. Implement compiler (IR + JIT)
+6. Add NN layers and optimizers
+7. Python bindings
+8. Distributed training
+9. ROCm and Intel backends
+10. Quantization and deployment tooling
+
+## Current Progress (v0.0.2)
+
+| Area | Status |
+|------|--------|
+| CMake build system | ✅ Done |
+| Testing framework | ✅ 38 tests, assert-based |
+| DType system | ✅ 11 dtypes |
+| Half precision | ✅ float16, bfloat16 |
+| Tensor class | ✅ Shape, strides, indexing, reshape |
+| Factory methods | ✅ zeros, ones, arange, rand, randn |
+| Arithmetic | ✅ +, -, *, / (element-wise) |
+| Broadcasting | ⬜ TODO |
+| Shape ops | ⬜ TODO |
+| Memory allocator | ⬜ TODO |
+| Device abstraction | ⬜ TODO |
+| Autograd | ⬜ TODO |
+| Backends (CPU/CUDA/ROCm/Intel) | ⬜ TODO |

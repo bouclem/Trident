@@ -6,6 +6,14 @@ All notable changes to Trident will be documented in this file.
 
 _Nothing yet._
 
+## [0.0.2] - 2026-07-02
+
+### Added
+- Factory methods: `zeros()`, `ones()`, `arange()`, `rand()`, `randn()` as static `Tensor` methods
+- Element-wise arithmetic operators: `operator+`, `operator-`, `operator*`, `operator/` (same shape + dtype only)
+- Shape and dtype mismatch validation for arithmetic
+- 15 new tests (factory methods + arithmetic operators)
+
 ## [0.0.1] - 2026-07-02
 
 ### Added

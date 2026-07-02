@@ -16,8 +16,9 @@
   - [x] reshape with -1 wildcard inference
   - [x] fill<T>()
   - [x] Additional dtypes (bfloat16, float16, int8, int16, uint8, complex64)
-  - [ ] Factory methods (zeros, ones, arange, randn, rand)
-  - [ ] Arithmetic operators with broadcasting
+  - [x] Factory methods (zeros, ones, arange, randn, rand)
+  - [x] Arithmetic operators (+, -, *, /) — element-wise, same shape
+  - [ ] Broadcasting for arithmetic operators
   - [ ] Shape ops (squeeze, unsqueeze, permute, transpose, expand)
   - [ ] Slicing
   - [ ] operator() overload for indexing

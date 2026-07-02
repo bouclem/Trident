@@ -93,11 +93,34 @@ public:
         }
     }
 
-    // TODO: arange, zeros, ones, randn, rand
+    // --- Factory methods ---
 
-    // --- Arithmetic (element-wise) ---
+    static Tensor zeros(std::vector<std::size_t> shape,
+                        DType dtype = DType::float32,
+                        Device device = Device::cpu);
 
-    // TODO: operator+, operator-, operator*, operator/
+    static Tensor ones(std::vector<std::size_t> shape,
+                       DType dtype = DType::float32,
+                       Device device = Device::cpu);
+
+    static Tensor arange(std::size_t n, DType dtype = DType::float32,
+                         Device device = Device::cpu);
+
+    static Tensor rand(std::vector<std::size_t> shape,
+                       DType dtype = DType::float32,
+                       Device device = Device::cpu);
+
+    static Tensor randn(std::vector<std::size_t> shape,
+                        DType dtype = DType::float32,
+                        Device device = Device::cpu);
+
+    // --- Arithmetic (element-wise, same shape only) ---
+
+    Tensor operator+(const Tensor& other) const;
+    Tensor operator-(const Tensor& other) const;
+    Tensor operator*(const Tensor& other) const;
+    Tensor operator/(const Tensor& other) const;
+
     // TODO: add(), sub(), mul(), div() with broadcasting
 
     // --- Autograd ---
@@ -123,6 +146,8 @@ private:
     std::size_t compute_offset(std::initializer_list<std::size_t> indices) const;
     void check_flat_bounds(std::size_t flat_index) const;
     void check_multi_bounds(std::initializer_list<std::size_t> indices) const;
+
+    static Tensor elementwise(const Tensor& a, const Tensor& b, char op);
 };
 
 }  // namespace trident
