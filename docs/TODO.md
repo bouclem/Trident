@@ -3,7 +3,7 @@
 ## Infrastructure
 - [x] Set up CMake build system
 - [x] Configure compiler flags (C++20, -Wall -Wextra -Wpedantic)
-- [ ] Set up testing framework (GoogleTest)
+- [x] Set up testing framework (assert-based, no external deps)
 - [ ] Set up CI/CD pipeline
 - [ ] Configure sanitizers (ASan, UBSan)
 

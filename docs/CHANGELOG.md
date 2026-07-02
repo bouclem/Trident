@@ -4,6 +4,10 @@ All notable changes to Trident will be documented in this file.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.0.1] - 2026-07-02
+
 ### Added
 - Project directory structure created with `.gitkeep` in all empty directories
 - `.gitignore` for C++ build artifacts, IDE files, and binding artifacts
@@ -16,3 +20,5 @@ All notable changes to Trident will be documented in this file.
 - `reshape()` with `-1` wildcard dimension inference
 - `fill<T>()` for uniform initialization
 - `Device` enum (CPU placeholder, GPU backends TODO)
+- Test runner with per-test and total timing (`tests/test_tensor.cpp`)
+- 20 assert-based tests covering DType, construction, strides, element access, reshape, fill, and bounds checking
