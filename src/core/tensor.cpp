@@ -41,20 +41,45 @@ void Tensor::allocate() {
     // TODO: Handle GPU allocation when device != Device::cpu
 }
 
-void Tensor::reshape(std::vector<std::size_t> new_shape) {
-    std::size_t new_numel = 1;
+void Tensor::reshape(std::vector<std::int64_t> new_shape) {
+    std::size_t wildcard_count = 0;
+    std::size_t known_numel = 1;
+
     for (const auto dim : new_shape) {
-        new_numel *= dim;
+        if (dim == -1) {
+            ++wildcard_count;
+        } else if (dim < 0) {
+            throw std::invalid_argument("reshape: dimensions must be non-negative or -1");
+        } else {
+            known_numel *= static_cast<std::size_t>(dim);
+        }
     }
 
-    // Support single -1 dimension for inference
-    // TODO: Add -1 wildcard dimension support
-
-    if (new_numel != numel_) {
-        throw std::invalid_argument("reshape: total elements must match");
+    if (wildcard_count > 1) {
+        throw std::invalid_argument("reshape: only one dimension can be -1");
     }
 
-    shape_ = std::move(new_shape);
+    if (wildcard_count == 1) {
+        if (known_numel == 0 || numel_ % known_numel != 0) {
+            throw std::invalid_argument("reshape: cannot infer -1 dimension from total elements");
+        }
+        const std::size_t inferred = numel_ / known_numel;
+        for (auto& dim : new_shape) {
+            if (dim == -1) {
+                dim = static_cast<std::int64_t>(inferred);
+            }
+        }
+    } else {
+        if (known_numel != numel_) {
+            throw std::invalid_argument("reshape: total elements must match");
+        }
+    }
+
+    shape_.clear();
+    shape_.reserve(new_shape.size());
+    for (const auto dim : new_shape) {
+        shape_.push_back(static_cast<std::size_t>(dim));
+    }
     compute_strides();
 }
 

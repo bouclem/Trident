@@ -59,7 +59,7 @@ public:
 
     // --- Shape operations ---
 
-    void reshape(std::vector<std::size_t> new_shape);
+    void reshape(std::vector<std::int64_t> new_shape);
     // TODO: squeeze, unsqueeze, permute, transpose, expand, broadcast_to
 
     // --- Fill operations ---
