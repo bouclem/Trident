@@ -14,6 +14,8 @@ _Nothing yet._
 - Initial documentation (README, TODO, PROJECT, LESSONS, METRICS)
 - CMake build system (C++20, warnings as error, sanitizer options, backend toggles)
 - `DType` enum with `dtype_size()` and `dtype_name()` helpers (`src/core/dtype.h`)
+- `float16` and `bfloat16` types with float conversion (`src/core/half.h`)
+- Additional dtypes: float16, bfloat16, int8, int16, uint8, complex64
 - `Tensor` class with shape/strides, CPU memory allocation, element access (`src/core/tensor.h` / `tensor.cpp`)
 - Multi-dimensional variadic indexing: `at<T>(row, col, ...)`
 - Debug bounds checking (compiled out with `NDEBUG`)
@@ -21,4 +23,4 @@ _Nothing yet._
 - `fill<T>()` for uniform initialization
 - `Device` enum (CPU placeholder, GPU backends TODO)
 - Test runner with per-test and total timing (`tests/test_tensor.cpp`)
-- 20 assert-based tests covering DType, construction, strides, element access, reshape, fill, and bounds checking
+- 23 assert-based tests covering DType, half precision, construction, strides, element access, reshape, fill, and bounds checking

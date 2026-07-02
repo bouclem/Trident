@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "core/dtype.h"
+#include "core/half.h"
 #include "core/tensor.h"
 
 using namespace trident;
@@ -34,19 +35,84 @@ static int tests_passed = 0;
 // --- DType tests ---
 
 static void test_dtype_size() {
+    assert(dtype_size(DType::float16) == 2);
+    assert(dtype_size(DType::bfloat16) == 2);
     assert(dtype_size(DType::float32) == 4);
     assert(dtype_size(DType::float64) == 8);
+    assert(dtype_size(DType::int8) == 1);
+    assert(dtype_size(DType::int16) == 2);
     assert(dtype_size(DType::int32) == 4);
     assert(dtype_size(DType::int64) == 8);
+    assert(dtype_size(DType::uint8) == 1);
     assert(dtype_size(DType::bool8) == 1);
+    assert(dtype_size(DType::complex64) == 8);
 }
 
 static void test_dtype_name() {
+    assert(dtype_name(DType::float16) == "float16");
+    assert(dtype_name(DType::bfloat16) == "bfloat16");
     assert(dtype_name(DType::float32) == "float32");
     assert(dtype_name(DType::float64) == "float64");
+    assert(dtype_name(DType::int8) == "int8");
+    assert(dtype_name(DType::int16) == "int16");
     assert(dtype_name(DType::int32) == "int32");
     assert(dtype_name(DType::int64) == "int64");
+    assert(dtype_name(DType::uint8) == "uint8");
     assert(dtype_name(DType::bool8) == "bool8");
+    assert(dtype_name(DType::complex64) == "complex64");
+}
+
+// --- Half precision tests ---
+
+static void test_float16_conversion() {
+    float16 a(1.0f);
+    assert(static_cast<float>(a) == 1.0f);
+
+    float16 b(3.14f);
+    const float bf = static_cast<float>(b);
+    assert(bf > 3.1f && bf < 3.2f);
+
+    float16 c(0.0f);
+    assert(static_cast<float>(c) == 0.0f);
+
+    float16 d(-2.5f);
+    assert(static_cast<float>(d) == -2.5f);
+
+    float16 e(65504.0f);  // max float16
+    assert(static_cast<float>(e) == 65504.0f);
+}
+
+static void test_bfloat16_conversion() {
+    bfloat16 a(1.0f);
+    assert(static_cast<float>(a) == 1.0f);
+
+    bfloat16 b(3.14f);
+    const float bf = static_cast<float>(b);
+    assert(bf > 3.1f && bf < 3.2f);
+
+    bfloat16 c(0.0f);
+    assert(static_cast<float>(c) == 0.0f);
+
+    bfloat16 d(-2.5f);
+    assert(static_cast<float>(d) == -2.5f);
+}
+
+static void test_tensor_with_new_dtypes() {
+    Tensor t8({4}, DType::int8);
+    t8.fill<int8_t>(-5);
+    assert(t8.at<int8_t>(0) == -5);
+    assert(t8.at<int8_t>(3) == -5);
+    assert(t8.nbytes() == 4);
+
+    Tensor u8({4}, DType::uint8);
+    u8.fill<uint8_t>(200);
+    assert(u8.at<uint8_t>(0) == 200);
+    assert(u8.nbytes() == 4);
+
+    Tensor i16({4}, DType::int16);
+    i16.fill<int16_t>(-1000);
+    assert(i16.at<int16_t>(0) == -1000);
+    assert(i16.nbytes() == 8);
 }
 
 // --- Tensor construction tests ---
@@ -229,6 +295,11 @@ int main() {
     std::printf("[DType]\n");
     RUN_TEST(test_dtype_size);
     RUN_TEST(test_dtype_name);
+
+    std::printf("\n[Half Precision]\n");
+    RUN_TEST(test_float16_conversion);
+    RUN_TEST(test_bfloat16_conversion);
+    RUN_TEST(test_tensor_with_new_dtypes);
 
     std::printf("\n[Tensor Construction]\n");
     RUN_TEST(test_default_constructor);

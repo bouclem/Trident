@@ -15,7 +15,7 @@
   - [x] Debug bounds checking (#ifndef NDEBUG)
   - [x] reshape with -1 wildcard inference
   - [x] fill<T>()
-  - [ ] Additional dtypes (bfloat16, float16, int8, uint8, etc.)
+  - [x] Additional dtypes (bfloat16, float16, int8, int16, uint8, complex64)
   - [ ] Factory methods (zeros, ones, arange, randn, rand)
   - [ ] Arithmetic operators with broadcasting
   - [ ] Shape ops (squeeze, unsqueeze, permute, transpose, expand)
