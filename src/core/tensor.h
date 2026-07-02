@@ -38,18 +38,40 @@ public:
 
     // --- Element access (CPU only) ---
 
-    // TODO: Add bounds checking in debug builds
     template<typename T>
     T& at(std::size_t flat_index) {
+#ifndef NDEBUG
+        check_flat_bounds(flat_index);
+#endif
         return *reinterpret_cast<T*>(data_.data() + flat_index * dtype_size(dtype_));
     }
 
     template<typename T>
     const T& at(std::size_t flat_index) const {
+#ifndef NDEBUG
+        check_flat_bounds(flat_index);
+#endif
         return *reinterpret_cast<const T*>(data_.data() + flat_index * dtype_size(dtype_));
     }
 
-    // TODO: Multi-dimensional indexing via variadic args or initializer_list
+    // Multi-dimensional indexing: at<float>(row, col) for a 2D tensor
+    template<typename T, typename... Indices>
+    T& at(std::size_t first, Indices... rest) {
+        static_assert(sizeof...(Indices) > 0, "Use at<T>(flat_index) for 1D access");
+        const auto idx = {first, static_cast<std::size_t>(rest)...};
+        const std::size_t offset = compute_offset(idx);
+        return at<T>(offset);
+    }
+
+    template<typename T, typename... Indices>
+    const T& at(std::size_t first, Indices... rest) const {
+        static_assert(sizeof...(Indices) > 0, "Use at<T>(flat_index) for 1D access");
+        const auto idx = {first, static_cast<std::size_t>(rest)...};
+        const std::size_t offset = compute_offset(idx);
+        return at<T>(offset);
+    }
+
+    // TODO: operator() overload for indexing: t(row, col)
 
     // --- Raw data access ---
 
@@ -97,6 +119,10 @@ private:
 
     void compute_strides();
     void allocate();
+
+    std::size_t compute_offset(std::initializer_list<std::size_t> indices) const;
+    void check_flat_bounds(std::size_t flat_index) const;
+    void check_multi_bounds(std::initializer_list<std::size_t> indices) const;
 };
 
 }  // namespace trident

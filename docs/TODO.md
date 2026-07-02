@@ -8,7 +8,19 @@
 - [ ] Configure sanitizers (ASan, UBSan)
 
 ## Core
-- [ ] Tensor class and dtype system
+- [x] Tensor class and dtype system
+  - [x] DType enum (float32, float64, int32, int64, bool8)
+  - [x] Shape, strides, numel
+  - [x] Element access (flat + multi-dimensional)
+  - [x] Debug bounds checking (#ifndef NDEBUG)
+  - [x] reshape with -1 wildcard inference
+  - [x] fill<T>()
+  - [ ] Additional dtypes (bfloat16, float16, int8, uint8, etc.)
+  - [ ] Factory methods (zeros, ones, arange, randn, rand)
+  - [ ] Arithmetic operators with broadcasting
+  - [ ] Shape ops (squeeze, unsqueeze, permute, transpose, expand)
+  - [ ] Slicing
+  - [ ] operator() overload for indexing
 - [ ] Memory allocator and pool
 - [ ] Device abstraction layer
 - [ ] Computation graph node/edge structures
