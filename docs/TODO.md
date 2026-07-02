@@ -1,8 +1,8 @@
 # TODO
 
 ## Infrastructure
-- [ ] Set up CMake build system
-- [ ] Configure compiler flags (C++20, -Wall -Wextra -Wpedantic)
+- [x] Set up CMake build system
+- [x] Configure compiler flags (C++20, -Wall -Wextra -Wpedantic)
 - [ ] Set up testing framework (GoogleTest)
 - [ ] Set up CI/CD pipeline
 - [ ] Configure sanitizers (ASan, UBSan)
