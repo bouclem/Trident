@@ -1,0 +1,90 @@
+# Build directories
+build/
+out/
+bin/
+lib/
+cmake-build-*/
+
+# CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CMakeScripts/
+CTestTestfile.cmake
+install_manifest.txt
+compile_commands.json
+*.cmake
+!CMakeLists.txt
+!**/CMakeLists.txt
+
+# Compiled objects
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# NVIDIA CUDA
+*.cubin
+*.fatbin
+*.ptx
+
+# IDE / Editor
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+.cache/
+.clion/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Python bindings artifacts
+__pycache__/
+*.pyc
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+*.whl
+
+# Go bindings artifacts
+*.test
+*.out
+
+# Profiling / coverage
+*.prof
+*.profraw
+*.profdata
+*.gcda
+*.gcno
+*.gcov
+coverage/
+*.lcov
+
+# Logs
+*.log
+logs/
+
+# Package archives
+*.tar.gz
+*.zip
+*.7z
+
+# Local config overrides
+.env
+.env.local
+config.local.*
