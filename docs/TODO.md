@@ -31,6 +31,7 @@
 - [ ] CUDA backend
 - [ ] ROCm backend
 - [ ] Intel (oneAPI/SYCL) backend
+- [ ] Intel Arc GPU backend
 
 ## Autograd
 - [ ] Reverse-mode autograd engine
