@@ -45,4 +45,30 @@ Cumulative mistakes, patterns, and insights. Read before starting work; add when
 
 ---
 
+## v0.0.3 — Fixes + Broadcasting + Shape Ops
+
+### float16 subnormal conversion — both directions were broken
+- **Forward (float→float16):** Shift formula `(mant | 0x800000) >> (13 + 14 - sub_exp)` was wrong. Correct: `>> (24 - sub_exp)`. The 24-bit significand needs to be shifted down to fit the 10-bit subnormal mantissa, and the shift amount depends on how far below the normal range the exponent is.
+- **Backward (float16→float):** Normalization loop had `if (exp == 0) break;` which triggered immediately since `exp` starts at 0 for subnormals. Fix: count shifts in a separate variable, then compute float32 exponent as `113 - shifts` (i.e., `127 + (-14 - shifts)`).
+- **Lesson:** Subnormal conversion is the hardest part of float16. Test with explicit subnormal values (2^-16, 2^-20, 2^-24), not just normal-range values.
+
+### Debug type safety for reinterpret_cast
+- **Pattern:** `at<T>()` uses `reinterpret_cast<T*>` on raw bytes. Added `check_dtype_size(sizeof(T))` in debug builds to catch type mismatches.
+- **Lesson:** `reinterpret_cast` is unavoidable for type-erased storage, but debug-time size checks catch the most common misuse (wrong type passed).
+
+### elementwise() constructor bypass
+- **Issue:** Old code created `Tensor({}, ...)` then manually set `shape_` and called `compute_strides()` + `allocate()`. This bypassed constructor validation.
+- **Fix:** `Tensor(a.shape_, a.dtype(), a.device())` — single constructor call, proper initialization.
+- **Lesson:** Never bypass your own constructors. If the constructor does validation, manual field assignment skips it.
+
+### Broadcasting implementation
+- **Pattern:** Right-align shapes, prepend 1-dims to shorter shape, each dim must match or be 1, result = max. Compute broadcast strides (0 for broadcasted dims) and iterate with multi-dim index counter.
+- **Lesson:** Broadcast strides (0 for broadcasted dims) let you read the same element multiple times without copying data. The index counter increment loop (right-to-right carry) is the standard way to iterate multi-dim indices.
+
+### Shape ops — zero-copy stride manipulation
+- **Pattern:** `squeeze`, `unsqueeze`, `transpose`, `permute` only modify `shape_` and `strides_` vectors. No data movement.
+- **Lesson:** Most shape operations are metadata-only if you maintain strides. The data stays in the same memory; only the interpretation changes.
+
+---
+
 <!-- Entries will be added as development progresses -->

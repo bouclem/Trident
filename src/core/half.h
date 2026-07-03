@@ -36,7 +36,7 @@ struct float16 {
         } else if (exp >= 103) {
             // Subnormal range
             const uint32_t sub_exp = exp - 102;
-            const uint32_t sub_mant = (mant | 0x800000) >> (13 + 14 - sub_exp);
+            const uint32_t sub_mant = (mant | 0x800000) >> (24 - sub_exp);
             raw = static_cast<uint16_t>(sign | sub_mant);
         } else {
             // Underflow to zero
@@ -62,15 +62,18 @@ struct float16 {
                 std::memcpy(&f, &bits, sizeof(f));
                 return f;
             }
-            // Subnormal — normalize
+            // Subnormal — normalize by shifting mant left until bit 10 is set
+            uint32_t shifts = 0;
             while (!(mant & 0x400)) {
                 mant <<= 1;
-                if (exp == 0) break;
-                exp = (exp == 0) ? 0 : exp - 1;
+                ++shifts;
             }
-            exp += 1;
-            mant &= 0x3FF;
-            uint32_t bits = sign | ((exp + 112) << 23) | (mant << 13);
+            // float16 subnormal value = 2^(-14) * (original_mant / 2^10)
+            // After normalization: exponent = -14 - shifts
+            // float32 biased exp = 127 + (-14 - shifts) = 113 - shifts
+            const uint32_t f32_exp = 113 - shifts;
+            mant &= 0x3FF;  // remove implicit bit
+            uint32_t bits = sign | (f32_exp << 23) | (mant << 13);
             float f;
             std::memcpy(&f, &bits, sizeof(f));
             return f;

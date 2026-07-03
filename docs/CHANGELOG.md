@@ -6,6 +6,18 @@ All notable changes to Trident will be documented in this file.
 
 _Nothing yet._
 
+## [0.0.3] - 2026-07-03
+
+### Fixed
+- `float16` subnormal conversion: forward (float→float16) had wrong shift formula (`13+14-sub_exp` → `24-sub_exp`); backward (float16→float) normalization loop broke immediately due to `exp==0` guard — replaced with shift-count approach
+- `at<T>()`: added debug-time `check_dtype_size()` — catches `sizeof(T)` mismatch with `dtype_size(dtype_)` in debug builds
+- `elementwise()`: replaced `Tensor({}, ...)` + manual `shape_` assignment with proper `Tensor(a.shape_, ...)` constructor call
+
+### Added
+- Broadcasting for arithmetic operators (`+`, `-`, `*`, `/`): numpy-style right-align, dim must match or be 1, result = max
+- Shape operations: `squeeze()`, `squeeze(dim)`, `unsqueeze(dim)`, `transpose(dim0, dim1)`, `permute(perm)` — stride/shape only, zero data copy
+- 14 new tests (subnormal fix, broadcasting, shape ops, dtype size check)
+
 ## [0.0.2] - 2026-07-02
 
 ### Added

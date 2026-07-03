@@ -58,14 +58,15 @@ Trident/
 
 ## Status
 
-**v0.0.2** — core Tensor class implemented with:
+**v0.0.3** — core Tensor class implemented with:
 - 11 dtypes (float16, bfloat16, float32, float64, int8, int16, int32, int64, uint8, bool8, complex64)
 - `float16` / `bfloat16` conversion types
 - Multi-dimensional indexing with debug bounds checking
 - `reshape()` with `-1` wildcard inference
 - Factory methods: `zeros()`, `ones()`, `arange()`, `rand()`, `randn()`
-- Element-wise arithmetic: `+`, `-`, `*`, `/`
-- 38 assert-based tests (all passing, ~5 ms)
+- Element-wise arithmetic: `+`, `-`, `*`, `/` with broadcasting
+- Shape ops: `squeeze()`, `unsqueeze()`, `transpose()`, `permute()`
+- 52 assert-based tests (all passing, ~5 ms)
 - CMake build system (C++20, MSVC / GCC / Clang)
 
 ## Build

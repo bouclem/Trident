@@ -1,5 +1,6 @@
 #include <cassert>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <stdexcept>
 
@@ -399,9 +400,174 @@ static void test_dtype_mismatch_throws() {
     assert(threw);
 }
 
+// --- float16 subnormal fix test ---
+
+static void test_float16_subnormal() {
+    // 2^-20 is in float16 subnormal range (2^-24 to 2^-15)
+    const float val = std::pow(2.0f, -20.0f);
+    float16 h(val);
+    const float back = static_cast<float>(h);
+    assert(back == val);
+
+    // 2^-16 is also subnormal
+    const float val2 = std::pow(2.0f, -16.0f);
+    float16 h2(val2);
+    assert(static_cast<float>(h2) == val2);
+
+    // Smallest positive subnormal: 2^-24
+    const float val3 = std::pow(2.0f, -24.0f);
+    float16 h3(val3);
+    assert(static_cast<float>(h3) == val3);
+}
+
+// --- Broadcasting tests ---
+
+static void test_broadcast_scalar() {
+    Tensor a = Tensor::ones({1}, DType::float32);
+    Tensor b = Tensor::arange(3, DType::float32);  // [0, 1, 2]
+    Tensor c = a + b;
+    assert(c.shape() == std::vector<std::size_t>({3}));
+    assert(c.at<float>(0) == 1.0f);
+    assert(c.at<float>(1) == 2.0f);
+    assert(c.at<float>(2) == 3.0f);
+}
+
+static void test_broadcast_2d() {
+    Tensor a = Tensor::ones({3, 1}, DType::float32);
+    Tensor b = Tensor::arange(4, DType::float32);
+    b.reshape({1, 4});
+    Tensor c = a + b;
+    assert(c.shape() == std::vector<std::size_t>({3, 4}));
+    for (std::size_t i = 0; i < 3; ++i) {
+        for (std::size_t j = 0; j < 4; ++j) {
+            assert(c.at<float>(i, j) == static_cast<float>(j + 1));
+        }
+    }
+}
+
+static void test_broadcast_3d() {
+    Tensor a = Tensor::ones({2, 1, 3}, DType::float32);
+    Tensor b = Tensor::ones({1, 4, 3}, DType::float32);
+    Tensor c = a * b;
+    assert(c.shape() == std::vector<std::size_t>({2, 4, 3}));
+    for (std::size_t i = 0; i < 2; ++i) {
+        for (std::size_t j = 0; j < 4; ++j) {
+            for (std::size_t k = 0; k < 3; ++k) {
+                assert(c.at<float>(i, j, k) == 1.0f);
+            }
+        }
+    }
+}
+
+static void test_broadcast_incompatible() {
+    Tensor a({2, 3}, DType::float32);
+    Tensor b({3, 2}, DType::float32);
+    bool threw = false;
+    try {
+        (void)(a + b);
+    } catch (const std::invalid_argument&) {
+        threw = true;
+    }
+    assert(threw);
+}
+
+static void test_broadcast_preserves_same_shape() {
+    Tensor a({3, 4}, DType::float32);
+    a.fill<float>(2.0f);
+    Tensor b({3, 4}, DType::float32);
+    b.fill<float>(3.0f);
+    Tensor c = a + b;
+    assert(c.shape() == std::vector<std::size_t>({3, 4}));
+    for (std::size_t i = 0; i < 12; ++i) {
+        assert(c.at<float>(i) == 5.0f);
+    }
+}
+
+// --- Shape operation tests ---
+
+static void test_squeeze_all() {
+    Tensor t({1, 3, 1, 4});
+    t.squeeze();
+    assert(t.shape() == std::vector<std::size_t>({3, 4}));
+    assert(t.strides() == std::vector<std::size_t>({4, 1}));
+}
+
+static void test_squeeze_dim() {
+    Tensor t({1, 3, 4});
+    t.squeeze(0);
+    assert(t.shape() == std::vector<std::size_t>({3, 4}));
+}
+
+static void test_squeeze_dim_throws() {
+    Tensor t({2, 3});
+    bool threw = false;
+    try {
+        t.squeeze(0);
+    } catch (const std::invalid_argument&) {
+        threw = true;
+    }
+    assert(threw);
+}
+
+static void test_unsqueeze() {
+    Tensor t({3, 4});
+    t.unsqueeze(0);
+    assert(t.shape() == std::vector<std::size_t>({1, 3, 4}));
+    assert(t.strides() == std::vector<std::size_t>({12, 4, 1}));
+
+    t.unsqueeze(3);
+    assert(t.shape() == std::vector<std::size_t>({1, 3, 4, 1}));
+}
+
+static void test_transpose() {
+    Tensor t({2, 3}, DType::float32);
+    t.at<float>(0, 0) = 1.0f;
+    t.at<float>(0, 1) = 2.0f;
+    t.at<float>(0, 2) = 3.0f;
+    t.at<float>(1, 0) = 4.0f;
+    t.at<float>(1, 1) = 5.0f;
+    t.at<float>(1, 2) = 6.0f;
+    t.transpose(0, 1);
+    assert(t.shape() == std::vector<std::size_t>({3, 2}));
+    assert(t.strides() == std::vector<std::size_t>({1, 3}));
+    assert(t.at<float>(0, 0) == 1.0f);
+    assert(t.at<float>(0, 1) == 4.0f);
+    assert(t.at<float>(1, 0) == 2.0f);
+    assert(t.at<float>(2, 1) == 6.0f);
+}
+
+static void test_permute() {
+    Tensor t({2, 3, 4});
+    t.permute({2, 0, 1});
+    assert(t.shape() == std::vector<std::size_t>({4, 2, 3}));
+    assert(t.strides() == std::vector<std::size_t>({1, 12, 4}));
+}
+
+static void test_permute_invalid() {
+    Tensor t({2, 3, 4});
+    bool threw = false;
+    try {
+        t.permute({0, 1});
+    } catch (const std::invalid_argument&) {
+        threw = true;
+    }
+    assert(threw);
+}
+
 // --- Bounds checking tests (debug only) ---
 
 #ifndef NDEBUG
+static void test_dtype_size_check() {
+    Tensor t({4}, DType::float32);
+    bool threw = false;
+    try {
+        (void)t.at<double>(0);
+    } catch (const std::invalid_argument&) {
+        threw = true;
+    }
+    assert(threw);
+}
+
 static void test_flat_bounds_check() {
     Tensor t({4}, DType::float32);
     bool threw = false;
@@ -438,7 +604,7 @@ static void test_wrong_index_count() {
 
 int main() {
     const auto total_t0 = std::chrono::high_resolution_clock::now();
-    std::printf("=== Trident Tests v0.0.2 ===\n\n");
+    std::printf("=== Trident Tests v0.0.3 ===\n\n");
 
     std::printf("[DType]\n");
     RUN_TEST(test_dtype_size);
@@ -446,6 +612,7 @@ int main() {
 
     std::printf("\n[Half Precision]\n");
     RUN_TEST(test_float16_conversion);
+    RUN_TEST(test_float16_subnormal);
     RUN_TEST(test_bfloat16_conversion);
     RUN_TEST(test_tensor_with_new_dtypes);
 
@@ -493,8 +660,25 @@ int main() {
     RUN_TEST(test_shape_mismatch_throws);
     RUN_TEST(test_dtype_mismatch_throws);
 
+    std::printf("\n[Broadcasting]\n");
+    RUN_TEST(test_broadcast_scalar);
+    RUN_TEST(test_broadcast_2d);
+    RUN_TEST(test_broadcast_3d);
+    RUN_TEST(test_broadcast_incompatible);
+    RUN_TEST(test_broadcast_preserves_same_shape);
+
+    std::printf("\n[Shape Ops]\n");
+    RUN_TEST(test_squeeze_all);
+    RUN_TEST(test_squeeze_dim);
+    RUN_TEST(test_squeeze_dim_throws);
+    RUN_TEST(test_unsqueeze);
+    RUN_TEST(test_transpose);
+    RUN_TEST(test_permute);
+    RUN_TEST(test_permute_invalid);
+
 #ifndef NDEBUG
     std::printf("\n[Bounds Checking (debug)]\n");
+    RUN_TEST(test_dtype_size_check);
     RUN_TEST(test_flat_bounds_check);
     RUN_TEST(test_multi_dim_bounds_check);
     RUN_TEST(test_wrong_index_count);

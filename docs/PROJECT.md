@@ -1,7 +1,7 @@
 # Project — Trident
 
-**Version:** 0.0.2  
-**Last updated:** 2026-07-02
+**Version:** 0.0.3  
+**Last updated:** 2026-07-03
 
 ## What It Is
 
@@ -39,7 +39,7 @@ Trident is a C++ deep learning and tensor computation framework built from scrat
 
 ### Key Subsystems
 
-- **Core** ✅ — `Tensor` class, `DType` (11 types), `float16`/`bfloat16`, `Device`, shape/strides, element access, reshape, fill, factory methods, arithmetic operators
+- **Core** ✅ — `Tensor` class, `DType` (11 types), `float16`/`bfloat16`, `Device`, shape/strides, element access, reshape, fill, factory methods, arithmetic operators with broadcasting, shape ops (squeeze/unsqueeze/transpose/permute)
 - **Memory** — Allocators, pools, pinned memory, caching, ref counting _(TODO)_
 - **Backend** — Per-vendor kernel implementations behind a common interface _(TODO)_
 - **Autograd** — Reverse-mode automatic differentiation over the computation graph _(TODO)_
@@ -68,19 +68,20 @@ Trident is a C++ deep learning and tensor computation framework built from scrat
 9. ROCm and Intel backends
 10. Quantization and deployment tooling
 
-## Current Progress (v0.0.2)
+## Current Progress (v0.0.3)
 
 | Area | Status |
 |------|--------|
 | CMake build system | ✅ Done |
-| Testing framework | ✅ 38 tests, assert-based |
+| Testing framework | ✅ 52 tests, assert-based |
 | DType system | ✅ 11 dtypes |
-| Half precision | ✅ float16, bfloat16 |
+| Half precision | ✅ float16, bfloat16 (subnormal fixed) |
 | Tensor class | ✅ Shape, strides, indexing, reshape |
 | Factory methods | ✅ zeros, ones, arange, rand, randn |
-| Arithmetic | ✅ +, -, *, / (element-wise) |
-| Broadcasting | ⬜ TODO |
-| Shape ops | ⬜ TODO |
+| Arithmetic | ✅ +, -, *, / (element-wise + broadcasting) |
+| Broadcasting | ✅ Done |
+| Shape ops | ✅ squeeze, unsqueeze, transpose, permute |
+| Slicing | ⬜ TODO |
 | Memory allocator | ⬜ TODO |
 | Device abstraction | ⬜ TODO |
 | Autograd | ⬜ TODO |

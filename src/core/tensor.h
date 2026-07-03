@@ -42,6 +42,7 @@ public:
     T& at(std::size_t flat_index) {
 #ifndef NDEBUG
         check_flat_bounds(flat_index);
+        check_dtype_size(sizeof(T));
 #endif
         return *reinterpret_cast<T*>(data_.data() + flat_index * dtype_size(dtype_));
     }
@@ -50,6 +51,7 @@ public:
     const T& at(std::size_t flat_index) const {
 #ifndef NDEBUG
         check_flat_bounds(flat_index);
+        check_dtype_size(sizeof(T));
 #endif
         return *reinterpret_cast<const T*>(data_.data() + flat_index * dtype_size(dtype_));
     }
@@ -82,7 +84,13 @@ public:
     // --- Shape operations ---
 
     void reshape(std::vector<std::int64_t> new_shape);
-    // TODO: squeeze, unsqueeze, permute, transpose, expand, broadcast_to
+
+    void squeeze();
+    void squeeze(std::size_t dim);
+    void unsqueeze(std::size_t dim);
+    void transpose(std::size_t dim0, std::size_t dim1);
+    void permute(std::vector<std::size_t> perm);
+    // TODO: expand, broadcast_to, slicing
 
     // --- Fill operations ---
 
@@ -114,14 +122,14 @@ public:
                         DType dtype = DType::float32,
                         Device device = Device::cpu);
 
-    // --- Arithmetic (element-wise, same shape only) ---
+    // --- Arithmetic (element-wise, with broadcasting) ---
 
     Tensor operator+(const Tensor& other) const;
     Tensor operator-(const Tensor& other) const;
     Tensor operator*(const Tensor& other) const;
     Tensor operator/(const Tensor& other) const;
 
-    // TODO: add(), sub(), mul(), div() with broadcasting
+    // Broadcasting is supported for all arithmetic operators
 
     // --- Autograd ---
 
@@ -146,8 +154,12 @@ private:
     std::size_t compute_offset(std::initializer_list<std::size_t> indices) const;
     void check_flat_bounds(std::size_t flat_index) const;
     void check_multi_bounds(std::initializer_list<std::size_t> indices) const;
+    void check_dtype_size(std::size_t type_size) const;
 
     static Tensor elementwise(const Tensor& a, const Tensor& b, char op);
+    static std::vector<std::size_t> broadcast_shapes(
+        const std::vector<std::size_t>& a,
+        const std::vector<std::size_t>& b);
 };
 
 }  // namespace trident

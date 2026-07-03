@@ -17,9 +17,9 @@
   - [x] fill<T>()
   - [x] Additional dtypes (bfloat16, float16, int8, int16, uint8, complex64)
   - [x] Factory methods (zeros, ones, arange, randn, rand)
-  - [x] Arithmetic operators (+, -, *, /) — element-wise, same shape
-  - [ ] Broadcasting for arithmetic operators
-  - [ ] Shape ops (squeeze, unsqueeze, permute, transpose, expand)
+  - [x] Arithmetic operators (+, -, *, /) — element-wise, with broadcasting
+  - [x] Broadcasting for arithmetic operators
+  - [x] Shape ops (squeeze, unsqueeze, transpose, permute)
   - [ ] Slicing
   - [ ] operator() overload for indexing
 - [ ] Memory allocator and pool

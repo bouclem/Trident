@@ -107,6 +107,14 @@ void Tensor::check_flat_bounds(std::size_t flat_index) const {
     }
 }
 
+void Tensor::check_dtype_size(std::size_t type_size) const {
+    if (type_size != dtype_size(dtype_)) {
+        throw std::invalid_argument("Tensor: type size " + std::to_string(type_size)
+                                    + " does not match dtype " + std::string(dtype_name(dtype_))
+                                    + " (size " + std::to_string(dtype_size(dtype_)) + ")");
+    }
+}
+
 void Tensor::check_multi_bounds(std::initializer_list<std::size_t> indices) const {
     if (indices.size() != shape_.size()) {
         throw std::invalid_argument("Tensor: expected " + std::to_string(shape_.size())
@@ -215,69 +223,99 @@ Tensor Tensor::randn(std::vector<std::size_t> shape, DType dtype, Device device)
     return t;
 }
 
-// --- Arithmetic operators (element-wise, same shape) ---
+// --- Broadcasting ---
+
+std::vector<std::size_t> Tensor::broadcast_shapes(
+        const std::vector<std::size_t>& a,
+        const std::vector<std::size_t>& b) {
+    const std::size_t result_ndim = std::max(a.size(), b.size());
+    std::vector<std::size_t> result(result_ndim);
+
+    for (std::size_t i = 0; i < result_ndim; ++i) {
+        const std::size_t a_dim = (i < result_ndim - a.size())
+            ? 1 : a[i - (result_ndim - a.size())];
+        const std::size_t b_dim = (i < result_ndim - b.size())
+            ? 1 : b[i - (result_ndim - b.size())];
+
+        if (a_dim != b_dim && a_dim != 1 && b_dim != 1) {
+            throw std::invalid_argument("broadcast: shapes are not compatible");
+        }
+        result[i] = std::max(a_dim, b_dim);
+    }
+    return result;
+}
 
 namespace {
 
-void check_same_shape(const Tensor& a, const Tensor& b, const char* op) {
-    if (a.shape() != b.shape()) {
-        throw std::invalid_argument(std::string(op) + ": shape mismatch");
+std::vector<std::size_t> compute_broadcast_strides(
+        const std::vector<std::size_t>& shape,
+        const std::vector<std::size_t>& strides,
+        const std::vector<std::size_t>& target_shape) {
+    const std::size_t ndim = target_shape.size();
+    std::vector<std::size_t> result(ndim, 0);
+
+    const std::size_t offset = ndim - shape.size();
+    for (std::size_t i = 0; i < shape.size(); ++i) {
+        const std::size_t target_idx = offset + i;
+        if (shape[i] == target_shape[target_idx]) {
+            result[target_idx] = strides[i];
+        } else {
+            result[target_idx] = 0;
+        }
     }
-    if (a.dtype() != b.dtype()) {
-        throw std::invalid_argument(std::string(op) + ": dtype mismatch");
-    }
+    return result;
 }
 
 }  // anonymous namespace
 
+// --- Arithmetic operators (element-wise, with broadcasting) ---
+
 Tensor Tensor::elementwise(const Tensor& a, const Tensor& b, char op) {
-    check_same_shape(a, b, "elementwise");
-    Tensor result({}, a.dtype(), a.device());
-    result.shape_ = a.shape_;
-    result.compute_strides();
-    result.allocate();
+    if (a.dtype() != b.dtype()) {
+        throw std::invalid_argument("elementwise: dtype mismatch");
+    }
+    if (a.device() != b.device()) {
+        throw std::invalid_argument("elementwise: device mismatch");
+    }
+
+    const auto result_shape = broadcast_shapes(a.shape_, b.shape_);
+
+    const auto a_strides = compute_broadcast_strides(a.shape_, a.strides_, result_shape);
+    const auto b_strides = compute_broadcast_strides(b.shape_, b.strides_, result_shape);
+
+    Tensor result(result_shape, a.dtype(), a.device());
+    const std::size_t ndim = result_shape.size();
+    const std::size_t numel = result.numel_;
+
+    std::vector<std::size_t> idx(ndim, 0);
+
+    auto dispatch = [&]<typename T>(T) {
+        for (std::size_t flat = 0; flat < numel; ++flat) {
+            std::size_t a_off = 0, b_off = 0;
+            for (std::size_t d = 0; d < ndim; ++d) {
+                a_off += idx[d] * a_strides[d];
+                b_off += idx[d] * b_strides[d];
+            }
+            switch (op) {
+                case '+': result.at<T>(flat) = a.at<T>(a_off) + b.at<T>(b_off); break;
+                case '-': result.at<T>(flat) = a.at<T>(a_off) - b.at<T>(b_off); break;
+                case '*': result.at<T>(flat) = a.at<T>(a_off) * b.at<T>(b_off); break;
+                case '/': result.at<T>(flat) = a.at<T>(a_off) / b.at<T>(b_off); break;
+            }
+            for (std::size_t d = ndim; d > 0; --d) {
+                const std::size_t dim = d - 1;
+                ++idx[dim];
+                if (idx[dim] < result_shape[dim]) break;
+                idx[dim] = 0;
+            }
+        }
+    };
 
     switch (a.dtype()) {
-        case DType::float32:
-            for (std::size_t i = 0; i < a.numel(); ++i) {
-                switch (op) {
-                    case '+': result.at<float>(i) = a.at<float>(i) + b.at<float>(i); break;
-                    case '-': result.at<float>(i) = a.at<float>(i) - b.at<float>(i); break;
-                    case '*': result.at<float>(i) = a.at<float>(i) * b.at<float>(i); break;
-                    case '/': result.at<float>(i) = a.at<float>(i) / b.at<float>(i); break;
-                }
-            }
-            break;
-        case DType::float64:
-            for (std::size_t i = 0; i < a.numel(); ++i) {
-                switch (op) {
-                    case '+': result.at<double>(i) = a.at<double>(i) + b.at<double>(i); break;
-                    case '-': result.at<double>(i) = a.at<double>(i) - b.at<double>(i); break;
-                    case '*': result.at<double>(i) = a.at<double>(i) * b.at<double>(i); break;
-                    case '/': result.at<double>(i) = a.at<double>(i) / b.at<double>(i); break;
-                }
-            }
-            break;
-        case DType::int32:
-            for (std::size_t i = 0; i < a.numel(); ++i) {
-                switch (op) {
-                    case '+': result.at<int32_t>(i) = a.at<int32_t>(i) + b.at<int32_t>(i); break;
-                    case '-': result.at<int32_t>(i) = a.at<int32_t>(i) - b.at<int32_t>(i); break;
-                    case '*': result.at<int32_t>(i) = a.at<int32_t>(i) * b.at<int32_t>(i); break;
-                    case '/': result.at<int32_t>(i) = a.at<int32_t>(i) / b.at<int32_t>(i); break;
-                }
-            }
-            break;
-        case DType::int64:
-            for (std::size_t i = 0; i < a.numel(); ++i) {
-                switch (op) {
-                    case '+': result.at<int64_t>(i) = a.at<int64_t>(i) + b.at<int64_t>(i); break;
-                    case '-': result.at<int64_t>(i) = a.at<int64_t>(i) - b.at<int64_t>(i); break;
-                    case '*': result.at<int64_t>(i) = a.at<int64_t>(i) * b.at<int64_t>(i); break;
-                    case '/': result.at<int64_t>(i) = a.at<int64_t>(i) / b.at<int64_t>(i); break;
-                }
-            }
-            break;
+        case DType::float32: dispatch(float{}); break;
+        case DType::float64: dispatch(double{}); break;
+        case DType::int32:   dispatch(int32_t{}); break;
+        case DType::int64:   dispatch(int64_t{}); break;
         // TODO: float16, bfloat16, int8, int16, uint8, complex64 arithmetic
         default:
             throw std::invalid_argument("arithmetic: unsupported dtype "
@@ -300,6 +338,80 @@ Tensor Tensor::operator*(const Tensor& other) const {
 
 Tensor Tensor::operator/(const Tensor& other) const {
     return elementwise(*this, other, '/');
+}
+
+// --- Shape operations ---
+
+void Tensor::squeeze() {
+    std::vector<std::size_t> new_shape;
+    std::vector<std::size_t> new_strides;
+    for (std::size_t i = 0; i < shape_.size(); ++i) {
+        if (shape_[i] != 1) {
+            new_shape.push_back(shape_[i]);
+            new_strides.push_back(strides_[i]);
+        }
+    }
+    shape_ = std::move(new_shape);
+    strides_ = std::move(new_strides);
+    if (shape_.empty()) {
+        numel_ = (data_.empty()) ? 0 : 1;
+    }
+}
+
+void Tensor::squeeze(std::size_t dim) {
+    if (dim >= shape_.size()) {
+        throw std::out_of_range("squeeze: dimension " + std::to_string(dim)
+                                + " out of range for ndim " + std::to_string(shape_.size()));
+    }
+    if (shape_[dim] != 1) {
+        throw std::invalid_argument("squeeze: dimension " + std::to_string(dim)
+                                    + " has size " + std::to_string(shape_[dim])
+                                    + ", not 1");
+    }
+    shape_.erase(shape_.begin() + static_cast<std::ptrdiff_t>(dim));
+    strides_.erase(strides_.begin() + static_cast<std::ptrdiff_t>(dim));
+}
+
+void Tensor::unsqueeze(std::size_t dim) {
+    if (dim > shape_.size()) {
+        throw std::out_of_range("unsqueeze: dimension " + std::to_string(dim)
+                                + " out of range for ndim " + std::to_string(shape_.size()));
+    }
+    std::size_t new_stride = 1;
+    if (dim < shape_.size()) {
+        new_stride = strides_[dim] * shape_[dim];
+    }
+    shape_.insert(shape_.begin() + static_cast<std::ptrdiff_t>(dim), 1);
+    strides_.insert(strides_.begin() + static_cast<std::ptrdiff_t>(dim), new_stride);
+}
+
+void Tensor::transpose(std::size_t dim0, std::size_t dim1) {
+    if (dim0 >= shape_.size() || dim1 >= shape_.size()) {
+        throw std::out_of_range("transpose: dimension index out of range for ndim "
+                                + std::to_string(shape_.size()));
+    }
+    std::swap(shape_[dim0], shape_[dim1]);
+    std::swap(strides_[dim0], strides_[dim1]);
+}
+
+void Tensor::permute(std::vector<std::size_t> perm) {
+    if (perm.size() != shape_.size()) {
+        throw std::invalid_argument("permute: permutation size "
+                                    + std::to_string(perm.size())
+                                    + " does not match ndim " + std::to_string(shape_.size()));
+    }
+    std::vector<std::size_t> new_shape(shape_.size());
+    std::vector<std::size_t> new_strides(shape_.size());
+    for (std::size_t i = 0; i < perm.size(); ++i) {
+        if (perm[i] >= shape_.size()) {
+            throw std::out_of_range("permute: index " + std::to_string(perm[i])
+                                    + " out of range for ndim " + std::to_string(shape_.size()));
+        }
+        new_shape[i] = shape_[perm[i]];
+        new_strides[i] = strides_[perm[i]];
+    }
+    shape_ = std::move(new_shape);
+    strides_ = std::move(new_strides);
 }
 
 }  // namespace trident
