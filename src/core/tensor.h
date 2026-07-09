@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "core/dtype.h"
@@ -44,7 +45,8 @@ public:
         check_flat_bounds(flat_index);
         check_dtype_size(sizeof(T));
 #endif
-        return *reinterpret_cast<T*>(data_.data() + flat_index * dtype_size(dtype_));
+        const auto offset = data_offset_ + compute_flat_offset(flat_index);
+        return *reinterpret_cast<T*>(storage_->data() + offset * dtype_size(dtype_));
     }
 
     template<typename T>
@@ -53,7 +55,8 @@ public:
         check_flat_bounds(flat_index);
         check_dtype_size(sizeof(T));
 #endif
-        return *reinterpret_cast<const T*>(data_.data() + flat_index * dtype_size(dtype_));
+        const auto offset = data_offset_ + compute_flat_offset(flat_index);
+        return *reinterpret_cast<const T*>(storage_->data() + offset * dtype_size(dtype_));
     }
 
     // Multi-dimensional indexing: at<float>(row, col) for a 2D tensor
@@ -61,25 +64,39 @@ public:
     T& at(std::size_t first, Indices... rest) {
         static_assert(sizeof...(Indices) > 0, "Use at<T>(flat_index) for 1D access");
         const auto idx = {first, static_cast<std::size_t>(rest)...};
-        const std::size_t offset = compute_offset(idx);
-        return at<T>(offset);
+        const std::size_t offset = data_offset_ + compute_offset(idx);
+#ifndef NDEBUG
+        check_dtype_size(sizeof(T));
+#endif
+        return *reinterpret_cast<T*>(storage_->data() + offset * dtype_size(dtype_));
     }
 
     template<typename T, typename... Indices>
     const T& at(std::size_t first, Indices... rest) const {
         static_assert(sizeof...(Indices) > 0, "Use at<T>(flat_index) for 1D access");
         const auto idx = {first, static_cast<std::size_t>(rest)...};
-        const std::size_t offset = compute_offset(idx);
-        return at<T>(offset);
+        const std::size_t offset = data_offset_ + compute_offset(idx);
+#ifndef NDEBUG
+        check_dtype_size(sizeof(T));
+#endif
+        return *reinterpret_cast<const T*>(storage_->data() + offset * dtype_size(dtype_));
     }
 
-    // TODO: operator() overload for indexing: t(row, col)
+    template<typename T, typename... Indices>
+    T& operator()(std::size_t first, Indices... rest) {
+        return at<T>(first, rest...);
+    }
+
+    template<typename T, typename... Indices>
+    const T& operator()(std::size_t first, Indices... rest) const {
+        return at<T>(first, rest...);
+    }
 
     // --- Raw data access ---
 
-    [[nodiscard]] void* data() noexcept { return data_.data(); }
-    [[nodiscard]] const void* data() const noexcept { return data_.data(); }
-    [[nodiscard]] std::size_t nbytes() const noexcept { return data_.size(); }
+    [[nodiscard]] void* data() noexcept { return storage_->data() + data_offset_ * dtype_size(dtype_); }
+    [[nodiscard]] const void* data() const noexcept { return storage_->data() + data_offset_ * dtype_size(dtype_); }
+    [[nodiscard]] std::size_t nbytes() const noexcept { return numel_ * dtype_size(dtype_); }
 
     // --- Shape operations ---
 
@@ -90,7 +107,11 @@ public:
     void unsqueeze(std::size_t dim);
     void transpose(std::size_t dim0, std::size_t dim1);
     void permute(std::vector<std::size_t> perm);
-    // TODO: expand, broadcast_to, slicing
+    [[nodiscard]] Tensor expand(std::vector<std::size_t> target_shape) const;
+    [[nodiscard]] Tensor broadcast_to(std::vector<std::size_t> target_shape) const;
+    [[nodiscard]] Tensor slice(std::vector<std::size_t> starts,
+                               std::vector<std::size_t> stops,
+                               std::vector<std::size_t> steps = {}) const;
 
     // --- Fill operations ---
 
@@ -146,12 +167,22 @@ private:
     std::size_t numel_{0};
     DType dtype_{DType::float32};
     Device device_{Device::cpu};
-    std::vector<std::byte> data_;
+    std::shared_ptr<std::vector<std::byte>> storage_{
+        std::make_shared<std::vector<std::byte>>()};
+    std::size_t data_offset_{0};
+
+    Tensor(std::shared_ptr<std::vector<std::byte>> storage,
+           std::size_t data_offset,
+           std::vector<std::size_t> shape,
+           std::vector<std::size_t> strides,
+           DType dtype,
+           Device device);
 
     void compute_strides();
     void allocate();
 
     std::size_t compute_offset(std::initializer_list<std::size_t> indices) const;
+    std::size_t compute_flat_offset(std::size_t flat_index) const;
     void check_flat_bounds(std::size_t flat_index) const;
     void check_multi_bounds(std::initializer_list<std::size_t> indices) const;
     void check_dtype_size(std::size_t type_size) const;

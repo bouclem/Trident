@@ -602,9 +602,67 @@ static void test_wrong_index_count() {
 }
 #endif
 
+static void test_operator_access() {
+    Tensor t({2, 3}, DType::int32);
+    t.operator()<int32_t>(1, 2) = 42;
+    assert(t.at<int32_t>(1, 2) == 42);
+    const Tensor& view = t;
+    assert(view.operator()<int32_t>(1, 2) == 42);
+}
+
+static void test_broadcast_to_view() {
+    Tensor t = Tensor::arange(3, DType::int32);
+    t.reshape({3, 1});
+    Tensor view = t.broadcast_to({3, 2});
+    assert(view.shape() == std::vector<std::size_t>({3, 2}));
+    assert(view.at<int32_t>(0, 0) == 0);
+    assert(view.at<int32_t>(0, 1) == 0);
+    assert(view.at<int32_t>(2, 1) == 2);
+    view.at<int32_t>(1, 0) = 99;
+    assert(t.at<int32_t>(1, 0) == 99);
+}
+
+static void test_expand_view() {
+    Tensor t = Tensor::ones({1, 2}, DType::float32);
+    Tensor view = t.expand({3, 2});
+    assert(view.shape() == std::vector<std::size_t>({3, 2}));
+    assert(view.at<float>(2, 1) == 1.0f);
+}
+
+static void test_slice_view() {
+    Tensor t = Tensor::arange(12, DType::int32);
+    t.reshape({3, 4});
+    Tensor view = t.slice({1, 1}, {3, 4}, {1, 2});
+    assert(view.shape() == std::vector<std::size_t>({2, 2}));
+    assert(view.at<int32_t>(0, 0) == 5);
+    assert(view.at<int32_t>(0, 1) == 7);
+    assert(view.at<int32_t>(1, 0) == 9);
+    view.at<int32_t>(1, 1) = 100;
+    assert(t.at<int32_t>(2, 3) == 100);
+}
+
+static void test_slice_invalid() {
+    Tensor t({4, 4});
+    bool threw = false;
+    try {
+        (void)t.slice({0}, {2});
+    } catch (const std::invalid_argument&) {
+        threw = true;
+    }
+    assert(threw);
+
+    threw = false;
+    try {
+        (void)t.slice({0, 0}, {4, 4}, {0, 1});
+    } catch (const std::invalid_argument&) {
+        threw = true;
+    }
+    assert(threw);
+}
+
 int main() {
     const auto total_t0 = std::chrono::high_resolution_clock::now();
-    std::printf("=== Trident Tests v0.0.3 ===\n\n");
+    std::printf("=== Trident Tests v0.0.4 ===\n\n");
 
     std::printf("[DType]\n");
     RUN_TEST(test_dtype_size);
@@ -668,6 +726,11 @@ int main() {
     RUN_TEST(test_broadcast_preserves_same_shape);
 
     std::printf("\n[Shape Ops]\n");
+    RUN_TEST(test_operator_access);
+    RUN_TEST(test_broadcast_to_view);
+    RUN_TEST(test_expand_view);
+    RUN_TEST(test_slice_view);
+    RUN_TEST(test_slice_invalid);
     RUN_TEST(test_squeeze_all);
     RUN_TEST(test_squeeze_dim);
     RUN_TEST(test_squeeze_dim_throws);

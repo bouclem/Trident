@@ -6,6 +6,14 @@ All notable changes to Trident will be documented in this file.
 
 _Nothing yet._
 
+## [0.0.4] - 2026-07-09
+
+### Added
+- Typed `operator()<T>(...)` indexing alongside existing `at<T>(...)`
+- Zero-copy `expand()` and `broadcast_to()` views with broadcast strides
+- Zero-copy strided `slice(starts, stops, steps)` views
+- 5 tests covering typed indexing, views, slicing, and validation
+
 ## [0.0.3] - 2026-07-03
 
 ### Fixed

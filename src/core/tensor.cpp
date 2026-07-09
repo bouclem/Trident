@@ -17,6 +17,27 @@ Tensor::Tensor(std::vector<std::size_t> shape, DType dtype, Device device)
     allocate();
 }
 
+Tensor::Tensor(std::shared_ptr<std::vector<std::byte>> storage,
+               std::size_t data_offset,
+               std::vector<std::size_t> shape,
+               std::vector<std::size_t> strides,
+               DType dtype,
+               Device device)
+    : shape_(std::move(shape)),
+      strides_(std::move(strides)),
+      dtype_(dtype),
+      device_(device),
+      storage_(std::move(storage)),
+      data_offset_(data_offset) {
+    numel_ = 1;
+    for (const auto dim : shape_) {
+        numel_ *= dim;
+    }
+    if (shape_.empty()) {
+        numel_ = 0;
+    }
+}
+
 void Tensor::compute_strides() {
     if (shape_.empty()) {
         strides_.clear();
@@ -34,12 +55,12 @@ void Tensor::compute_strides() {
 
 void Tensor::allocate() {
     if (numel_ == 0) {
-        data_.clear();
+        storage_->clear();
         return;
     }
 
     const std::size_t bytes = numel_ * dtype_size(dtype_);
-    data_.resize(bytes);
+    storage_->resize(bytes);
 
     // FIXME: Use memory pool allocator from src/memory/ when available
     // TODO: Handle GPU allocation when device != Device::cpu
@@ -100,6 +121,17 @@ std::size_t Tensor::compute_offset(std::initializer_list<std::size_t> indices) c
     return offset;
 }
 
+std::size_t Tensor::compute_flat_offset(std::size_t flat_index) const {
+    std::size_t offset = 0;
+    for (std::size_t dim = shape_.size(); dim > 0; --dim) {
+        const auto axis = dim - 1;
+        const auto index = flat_index % shape_[axis];
+        flat_index /= shape_[axis];
+        offset += index * strides_[axis];
+    }
+    return offset;
+}
+
 void Tensor::check_flat_bounds(std::size_t flat_index) const {
     if (flat_index >= numel_) {
         throw std::out_of_range("Tensor: flat index " + std::to_string(flat_index)
@@ -135,7 +167,7 @@ void Tensor::check_multi_bounds(std::initializer_list<std::size_t> indices) cons
 
 Tensor Tensor::zeros(std::vector<std::size_t> shape, DType dtype, Device device) {
     Tensor t(std::move(shape), dtype, device);
-    std::fill(t.data_.begin(), t.data_.end(), std::byte{0});
+    std::fill(t.storage_->begin(), t.storage_->end(), std::byte{0});
     return t;
 }
 
@@ -296,11 +328,15 @@ Tensor Tensor::elementwise(const Tensor& a, const Tensor& b, char op) {
                 a_off += idx[d] * a_strides[d];
                 b_off += idx[d] * b_strides[d];
             }
+            const auto* a_ptr = reinterpret_cast<const T*>(a.storage_->data()
+                + (a.data_offset_ + a_off) * dtype_size(a.dtype_));
+            const auto* b_ptr = reinterpret_cast<const T*>(b.storage_->data()
+                + (b.data_offset_ + b_off) * dtype_size(b.dtype_));
             switch (op) {
-                case '+': result.at<T>(flat) = a.at<T>(a_off) + b.at<T>(b_off); break;
-                case '-': result.at<T>(flat) = a.at<T>(a_off) - b.at<T>(b_off); break;
-                case '*': result.at<T>(flat) = a.at<T>(a_off) * b.at<T>(b_off); break;
-                case '/': result.at<T>(flat) = a.at<T>(a_off) / b.at<T>(b_off); break;
+                case '+': result.at<T>(flat) = *a_ptr + *b_ptr; break;
+                case '-': result.at<T>(flat) = *a_ptr - *b_ptr; break;
+                case '*': result.at<T>(flat) = *a_ptr * *b_ptr; break;
+                case '/': result.at<T>(flat) = *a_ptr / *b_ptr; break;
             }
             for (std::size_t d = ndim; d > 0; --d) {
                 const std::size_t dim = d - 1;
@@ -342,6 +378,66 @@ Tensor Tensor::operator/(const Tensor& other) const {
 
 // --- Shape operations ---
 
+Tensor Tensor::broadcast_to(std::vector<std::size_t> target_shape) const {
+    if (target_shape.size() < shape_.size()) {
+        throw std::invalid_argument("broadcast_to: target rank cannot be smaller than source rank");
+    }
+
+    const auto rank_offset = target_shape.size() - shape_.size();
+    std::vector<std::size_t> view_strides(target_shape.size(), 0);
+    for (std::size_t i = 0; i < target_shape.size(); ++i) {
+        if (i < rank_offset) {
+            continue;
+        }
+        const auto source_dim = shape_[i - rank_offset];
+        const auto target_dim = target_shape[i];
+        if (source_dim != target_dim && source_dim != 1) {
+            throw std::invalid_argument("broadcast_to: shapes are not compatible");
+        }
+        view_strides[i] = source_dim == 1 ? 0 : strides_[i - rank_offset];
+    }
+
+    return Tensor(storage_, data_offset_, std::move(target_shape),
+                  std::move(view_strides), dtype_, device_);
+}
+
+Tensor Tensor::expand(std::vector<std::size_t> target_shape) const {
+    return broadcast_to(std::move(target_shape));
+}
+
+Tensor Tensor::slice(std::vector<std::size_t> starts,
+                     std::vector<std::size_t> stops,
+                     std::vector<std::size_t> steps) const {
+    if (starts.size() != shape_.size() || stops.size() != shape_.size()) {
+        throw std::invalid_argument("slice: starts and stops must match tensor rank");
+    }
+    if (steps.empty()) {
+        steps.assign(shape_.size(), 1);
+    }
+    if (steps.size() != shape_.size()) {
+        throw std::invalid_argument("slice: steps must match tensor rank");
+    }
+
+    std::size_t offset = data_offset_;
+    std::vector<std::size_t> result_shape(shape_.size());
+    std::vector<std::size_t> result_strides(shape_.size());
+    for (std::size_t i = 0; i < shape_.size(); ++i) {
+        if (steps[i] == 0) {
+            throw std::invalid_argument("slice: steps must be positive");
+        }
+        if (starts[i] > stops[i] || stops[i] > shape_[i]) {
+            throw std::out_of_range("slice: bounds out of range");
+        }
+        offset += starts[i] * strides_[i];
+        const auto span = stops[i] - starts[i];
+        result_shape[i] = (span + steps[i] - 1) / steps[i];
+        result_strides[i] = strides_[i] * steps[i];
+    }
+
+    return Tensor(storage_, offset, std::move(result_shape),
+                  std::move(result_strides), dtype_, device_);
+}
+
 void Tensor::squeeze() {
     std::vector<std::size_t> new_shape;
     std::vector<std::size_t> new_strides;
@@ -354,7 +450,7 @@ void Tensor::squeeze() {
     shape_ = std::move(new_shape);
     strides_ = std::move(new_strides);
     if (shape_.empty()) {
-        numel_ = (data_.empty()) ? 0 : 1;
+        numel_ = storage_->empty() ? 0 : 1;
     }
 }
 

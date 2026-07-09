@@ -71,4 +71,14 @@ Cumulative mistakes, patterns, and insights. Read before starting work; add when
 
 ---
 
+## v0.0.4 — Tensor Views + Typed Indexing
+
+### Shared storage for views
+- **Pattern:** Store tensor bytes in `std::shared_ptr<std::vector<std::byte>>` and keep a logical element offset so views remain valid after the source tensor goes out of scope.
+- **Lesson:** View operations must use logical strides and physical storage offsets consistently; flat indexing cannot assume contiguous storage.
+
+### Broadcast and slice strides
+- **Pattern:** Use stride `0` for broadcast dimensions and multiply source strides by slice steps for strided views.
+- **Lesson:** Zero-copy views require arithmetic kernels to read physical offsets directly rather than routing through contiguous-only flat indexing.
+
 <!-- Entries will be added as development progresses -->
