@@ -20,8 +20,8 @@
   - [x] Arithmetic operators (+, -, *, /) — element-wise, with broadcasting
   - [x] Broadcasting for arithmetic operators
   - [x] Shape ops (squeeze, unsqueeze, transpose, permute)
-  - [ ] Slicing
-  - [ ] operator() overload for indexing
+  - [x] Slicing
+  - [x] operator() overload for indexing
 - [ ] Memory allocator and pool
 - [ ] Device abstraction layer
 - [ ] Computation graph node/edge structures
